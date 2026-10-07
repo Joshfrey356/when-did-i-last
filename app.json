@@ -61,6 +61,16 @@
     },
     "runtimeVersion": {
       "policy": "sdkVersion"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f418d71f-3254-4f94-a43f-7fb1d01ad96a"
+      }
+    },
+    "owner": "revv-launch",
+    "updates": {
+      "url": "https://u.expo.dev/f418d71f-3254-4f94-a43f-7fb1d01ad96a"
     }
   }
 }
