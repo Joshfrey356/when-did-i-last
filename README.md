@@ -28,6 +28,25 @@ Scan the QR code with the **Expo Go** app to try it on your phone. For the exact
 
 To see the web preview with sample data: `npx expo start --web`, then open `http://localhost:8081/?demo`.
 
+## Always-current preview in Expo Go
+
+Every push to `main` publishes the app to expo.dev (EAS Update) through `.github/workflows/expo-preview.yml`, so anyone with Expo Go can open the latest version without your computer running.
+
+**One-time setup**
+1. Create an access token at expo.dev → Account settings → Access tokens.
+2. In this repo, open Settings → Secrets and variables → Actions → **New repository secret**. Name it `EXPO_TOKEN` and paste in the token.
+3. Optional: if the app should live under an Expo organization (for example RevvLaunch) instead of your personal account, open the **Variables** tab and add `EXPO_ACCOUNT` with the organization's name.
+4. Go to Actions → **Expo preview** → **Run workflow**, or just push a commit.
+
+The first run creates the `last-time` project on expo.dev, then commits the project ID to `app.json` on its own.
+
+**Opening it**
+- Open the latest run under the Actions tab. The summary has a QR code; scan it with your iPhone camera.
+- Or go to expo.dev → Last Time → Updates → the newest `main` update → **Preview**.
+- Every pull request gets its own preview, with a QR code posted as a comment on the PR.
+
+Expo Go has to be on the same SDK as the app (SDK 57). If it says the project is incompatible, update Expo Go from the App Store.
+
 ## Ship it to the App Store
 
 You need an Apple Developer account ($99/yr). If you already set one up for The Good Things, use the same one.

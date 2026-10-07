@@ -1,0 +1,106 @@
+# Publishes the app to Expo (EAS Update) so it can always be opened in Expo Go.
+#
+#  - Every push to `main`  -> updates the "main" branch on expo.dev (the always-current preview)
+#  - Every pull request    -> publishes that PR's own preview and comments a QR code on the PR
+#
+# One-time setup: add a repository secret named EXPO_TOKEN
+# (expo.dev -> Account settings -> Access tokens).
+# The first run links this repo to an Expo project automatically and commits the project ID.
+
+name: Expo preview
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: expo-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Add a repository secret named EXPO_TOKEN (expo.dev -> Account settings -> Access tokens)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and lint
+        run: |
+          npx tsc --noEmit
+          npx expo lint
+
+      # Runs only until the repo is linked: creates/links the Expo project, adds the
+      # project ID + updates URL to app.json, and commits it back to main.
+      - name: Link Expo project (first run only)
+        if: github.event_name != 'pull_request'
+        env:
+          # Optional: set a repository variable EXPO_ACCOUNT (e.g. your organization) to own the project.
+          EXPO_ACCOUNT: ${{ vars.EXPO_ACCOUNT }}
+        run: |
+          if node -e "const c=require('./app.json');process.exit(c.expo?.extra?.eas?.projectId?0:1)"; then
+            echo "Already linked to an Expo project."
+            exit 0
+          fi
+          eas init --non-interactive --force ${EXPO_ACCOUNT:+--account "$EXPO_ACCOUNT"}
+          eas update:configure --non-interactive --platform all
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.json
+          git commit -m "Link Expo project [skip ci]"
+          git push
+
+      - name: Publish to Expo Go (main)
+        if: github.event_name != 'pull_request'
+        id: main
+        uses: expo/expo-github-action/preview@v8
+        with:
+          command: eas update --auto --branch main --platform all
+          qr-target: expo-go
+          comment: false
+
+      - name: Publish to Expo Go (pull request)
+        if: github.event_name == 'pull_request'
+        uses: expo/expo-github-action/preview@v8
+        with:
+          command: eas update --auto --platform all
+          qr-target: expo-go
+
+      - name: Add QR code to the run summary
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## Last Time is live in Expo Go"
+            echo ""
+            echo "Scan with your iPhone camera (Expo Go must be installed and up to date):"
+            echo ""
+            echo "![QR code](${{ steps.main.outputs.qr }})"
+            echo ""
+            echo "Update page: ${{ steps.main.outputs.link }}"
+          } >> "$GITHUB_STEP_SUMMARY"
